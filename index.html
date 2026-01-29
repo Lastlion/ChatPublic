@@ -3,73 +3,168 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Chat Pro</title>
+    <title>Radio Chat Pro</title>
     <style>
-        :root { --blue: #00d2ff; --pink: #ff007f; --dark: #050505; }
-        body { background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; }
-        
-        /* Fenêtre Pseudo */
-        #pseudo-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--dark); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        
-        header { padding: 15px; text-align: center; border-bottom: 2px solid var(--blue); box-shadow: 0 0 15px var(--blue); font-weight: bold; letter-spacing: 2px; }
-        #messages { flex-grow: 1; list-style: none; padding: 20px; overflow-y: auto; }
-        
-        /* Bulles de message */
-        .msg-container { margin-bottom: 15px; padding: 10px 15px; border-radius: 15px; background: rgba(255,255,255,0.05); border-left: 4px solid var(--pink); max-width: 80%; }
-        .pseudo { font-weight: bold; color: var(--blue); font-size: 0.8em; display: block; margin-bottom: 5px; }
-        .text { color: #eee; }
+        :root {
+            --bg-black: #000000;
+            --glow-soft: rgba(255, 255, 255, 0.3);
+            --border: rgba(255, 255, 255, 0.15);
+        }
 
-        #form { display: flex; padding: 15px; background: #111; border-top: 1px solid #333; }
-        input { flex-grow: 1; padding: 12px; border: 1px solid var(--blue); border-radius: 8px; background: #000; color: #fff; outline: none; }
-        button { background: var(--blue); border: none; padding: 0 20px; margin-left: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
-        button:hover { background: var(--pink); color: white; box-shadow: 0 0 15px var(--pink); }
+        body { background: #0a0a0a; font-family: -apple-system, system-ui, sans-serif; margin: 0; }
+
+        /* --- BULLE CHAT DISCRÈTE --- */
+        #chat-button {
+            position: fixed; bottom: 20px; right: 20px;
+            width: 50px; height: 50px;
+            background: var(--bg-black);
+            border: 1px solid var(--border);
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; box-shadow: 0 0 12px var(--glow-soft);
+            z-index: 9999; transition: 0.3s;
+        }
+        #chat-button:hover { transform: scale(1.05); box-shadow: 0 0 20px rgba(255,255,255,0.5); }
+        #chat-button svg { width: 24px; fill: white; }
+
+        /* --- FENÊTRE ADAPTATIVE --- */
+        #chat-window {
+            position: fixed; bottom: 85px; right: 20px;
+            width: 320px; height: 450px;
+            background: var(--bg-black);
+            border: 1px solid var(--border);
+            border-radius: 16px;
+            display: none; flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.8);
+            z-index: 9999; overflow: hidden;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn { from { opacity: 0; transform: translateY(15px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* HEADER AVEC BOUTON CHANGER */
+        header { 
+            background: #111; padding: 12px; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid var(--border);
+        }
+        header span { font-size: 0.75em; font-weight: bold; color: #fff; letter-spacing: 1px; }
+        #change-pseudo { font-size: 0.6em; color: #666; cursor: pointer; text-decoration: underline; border: none; background: none; }
+        #change-pseudo:hover { color: #fff; }
+
+        /* CONTENUS */
+        #pseudo-container, #chat-content { flex-grow: 1; display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+        #chat-content { display: none; }
+
+        #messages { flex-grow: 1; list-style: none; padding: 12px; margin: 0; overflow-y: auto; background: #050505; }
+        .msg-line { margin-bottom: 10px; padding: 8px 12px; background: rgba(255,255,255,0.04); border-radius: 10px; font-size: 0.85em; color: #eee; border-left: 2px solid #fff; word-wrap: break-word; }
+        .u-name { font-weight: bold; color: #888; display: block; font-size: 0.75em; margin-bottom: 2px; }
+
+        /* FORMULAIRES */
+        #form, #pseudo-container { padding: 15px; background: #000; }
+        #pseudo-container { justify-content: center; align-items: center; text-align: center; }
+        
+        input { width: 100%; padding: 10px; background: #111; border: 1px solid #333; color: #fff; border-radius: 8px; outline: none; box-sizing: border-box; }
+        input:focus { border-color: #fff; }
+
+        .btn-main { background: #fff; color: #000; border: none; padding: 10px 20px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-main:hover { background: #ccc; }
+
+        #form { display: flex; border-top: 1px solid #222; }
+        #form button { margin-left: 8px; padding: 0 15px; }
+
+        /* ADAPTATION MOBILE */
+        @media (max-width: 480px) {
+            #chat-window { width: 90%; right: 5%; height: 60vh; bottom: 80px; }
+            #chat-button { width: 45px; height: 45px; bottom: 15px; right: 15px; }
+        }
     </style>
 </head>
 <body>
 
-    <div id="pseudo-overlay">
-        <h2>Choisis un Pseudo</h2>
-        <input type="text" id="pseudo-input" placeholder="Ton nom..." style="max-width: 250px;">
-        <button onclick="setPseudo()">Entrer dans le Chat</button>
+    <div id="chat-button" onclick="toggleChat()">
+        <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>
     </div>
 
-    <header>NEON CHAT PUBLIC</header>
-    <ul id="messages"></ul>
+    <div id="chat-window">
+        <header>
+            <span>LIVE CHAT</span>
+            <button id="change-pseudo" onclick="resetPseudo()">Changer</button>
+        </header>
 
-    <form id="form">
-        <input id="input" autocomplete="off" placeholder="Écris ton message..." />
-        <button type="submit">Envoyer</button>
-    </form>
+        <div id="pseudo-container">
+            <p style="color:#aaa; font-size: 0.8em; margin-bottom:15px;">Choisissez un pseudo</p>
+            <input type="text" id="p-input" placeholder="Pseudo..." maxlength="12">
+            <button class="btn-main" onclick="joinChat()" style="margin-top:15px; width:100%;">REJOINDRE</button>
+        </div>
 
-    <script src="/socket.io/socket.io.js"></script>
+        <div id="chat-content">
+            <ul id="messages"></ul>
+            <form id="form">
+                <input id="input" autocomplete="off" placeholder="Message..." />
+                <button type="submit" class="btn-main">OK</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
     <script>
-        var socket = io();
-        var myPseudo = "";
+        // --- REMPLACE PAR TON LIEN RENDER ---
+        const socket = io('https://ton-site.onrender.com'); 
+        
+        let myPseudo = localStorage.getItem('chat-pseudo');
 
-        function setPseudo() {
-            const val = document.getElementById('pseudo-input').value;
-            if(val) {
+        // Initialisation : Si pseudo déjà connu
+        if (myPseudo) {
+            showChatUI();
+            socket.emit('new user', myPseudo);
+        }
+
+        function toggleChat() {
+            const win = document.getElementById('chat-window');
+            win.style.display = (win.style.display === 'flex') ? 'none' : 'flex';
+        }
+
+        function joinChat() {
+            const val = document.getElementById('p-input').value.trim();
+            if(val !== "") {
                 myPseudo = val;
-                document.getElementById('pseudo-overlay').style.display = 'none';
+                localStorage.setItem('chat-pseudo', myPseudo);
+                showChatUI();
                 socket.emit('new user', myPseudo);
             }
+        }
+
+        function showChatUI() {
+            document.getElementById('pseudo-container').style.display = 'none';
+            document.getElementById('chat-content').style.display = 'flex';
+            document.getElementById('change-pseudo').style.display = 'block';
+        }
+
+        function resetPseudo() {
+            localStorage.removeItem('chat-pseudo');
+            location.reload(); // Redémarre pour demander le pseudo
         }
 
         document.getElementById('form').addEventListener('submit', function(e) {
             e.preventDefault();
             const input = document.getElementById('input');
-            if (input.value) {
+            if (input.value && myPseudo) {
                 socket.emit('chat message', { pseudo: myPseudo, text: input.value });
                 input.value = '';
             }
         });
 
         socket.on('chat message', function(data) {
-            var item = document.createElement('li');
-            item.className = 'msg-container';
-            item.innerHTML = `<span class="pseudo">${data.pseudo}</span><span class="text">${data.text}</span>`;
-            document.getElementById('messages').appendChild(item);
-            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
+            const item = document.createElement('li');
+            item.className = 'msg-line';
+            if (data.pseudo === 'SYSTÈME') { 
+                item.style.opacity = "0.5"; 
+                item.style.borderLeft = "2px dashed #444"; 
+            }
+            item.innerHTML = `<span class="u-name">${data.pseudo}</span> ${data.text}`;
+            const msgList = document.getElementById('messages');
+            msgList.appendChild(item);
+            msgList.scrollTop = msgList.scrollHeight;
         });
     </script>
 </body>
