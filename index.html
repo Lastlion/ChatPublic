@@ -3,44 +3,73 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neon Chat</title>
+    <title>Neon Chat Pro</title>
     <style>
-        body { background: #0a0a0a; color: #fff; font-family: sans-serif; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        header { padding: 15px; text-align: center; border-bottom: 2px solid #00d2ff; box-shadow: 0 0 10px #00d2ff; font-weight: bold; }
-        #messages { flex-grow: 1; list-style-type: none; margin: 0; padding: 20px; overflow-y: auto; }
-        #messages li { padding: 10px; margin-bottom: 10px; background: rgba(0, 210, 255, 0.1); border-left: 4px solid #ff007f; border-radius: 5px; }
+        :root { --blue: #00d2ff; --pink: #ff007f; --dark: #050505; }
+        body { background: var(--dark); color: white; font-family: 'Segoe UI', sans-serif; margin: 0; height: 100vh; display: flex; flex-direction: column; }
+        
+        /* Fenêtre Pseudo */
+        #pseudo-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background: var(--dark); z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        
+        header { padding: 15px; text-align: center; border-bottom: 2px solid var(--blue); box-shadow: 0 0 15px var(--blue); font-weight: bold; letter-spacing: 2px; }
+        #messages { flex-grow: 1; list-style: none; padding: 20px; overflow-y: auto; }
+        
+        /* Bulles de message */
+        .msg-container { margin-bottom: 15px; padding: 10px 15px; border-radius: 15px; background: rgba(255,255,255,0.05); border-left: 4px solid var(--pink); max-width: 80%; }
+        .pseudo { font-weight: bold; color: var(--blue); font-size: 0.8em; display: block; margin-bottom: 5px; }
+        .text { color: #eee; }
+
         #form { display: flex; padding: 15px; background: #111; border-top: 1px solid #333; }
-        #input { flex-grow: 1; padding: 12px; border: 1px solid #00d2ff; border-radius: 5px; background: #000; color: #fff; outline: none; }
-        button { background: #00d2ff; border: none; padding: 0 25px; margin-left: 10px; border-radius: 5px; font-weight: bold; cursor: pointer; }
-        button:hover { background: #ff007f; color: white; }
+        input { flex-grow: 1; padding: 12px; border: 1px solid var(--blue); border-radius: 8px; background: #000; color: #fff; outline: none; }
+        button { background: var(--blue); border: none; padding: 0 20px; margin-left: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        button:hover { background: var(--pink); color: white; box-shadow: 0 0 15px var(--pink); }
     </style>
 </head>
 <body>
+
+    <div id="pseudo-overlay">
+        <h2>Choisis un Pseudo</h2>
+        <input type="text" id="pseudo-input" placeholder="Ton nom..." style="max-width: 250px;">
+        <button onclick="setPseudo()">Entrer dans le Chat</button>
+    </div>
+
     <header>NEON CHAT PUBLIC</header>
     <ul id="messages"></ul>
+
     <form id="form">
-        <input id="input" autocomplete="off" placeholder="Écris un message..." /><button>Envoyer</button>
+        <input id="input" autocomplete="off" placeholder="Écris ton message..." />
+        <button type="submit">Envoyer</button>
     </form>
 
     <script src="/socket.io/socket.io.js"></script>
     <script>
         var socket = io();
-        var form = document.getElementById('form');
-        var input = document.getElementById('input');
+        var myPseudo = "";
 
-        form.addEventListener('submit', function(e) {
+        function setPseudo() {
+            const val = document.getElementById('pseudo-input').value;
+            if(val) {
+                myPseudo = val;
+                document.getElementById('pseudo-overlay').style.display = 'none';
+                socket.emit('new user', myPseudo);
+            }
+        }
+
+        document.getElementById('form').addEventListener('submit', function(e) {
             e.preventDefault();
+            const input = document.getElementById('input');
             if (input.value) {
-                socket.emit('chat message', input.value);
+                socket.emit('chat message', { pseudo: myPseudo, text: input.value });
                 input.value = '';
             }
         });
 
-        socket.on('chat message', function(msg) {
+        socket.on('chat message', function(data) {
             var item = document.createElement('li');
-            item.textContent = msg;
+            item.className = 'msg-container';
+            item.innerHTML = `<span class="pseudo">${data.pseudo}</span><span class="text">${data.text}</span>`;
             document.getElementById('messages').appendChild(item);
-            window.scrollTo(0, document.body.scrollHeight);
+            document.getElementById('messages').scrollTop = document.getElementById('messages').scrollHeight;
         });
     </script>
 </body>
