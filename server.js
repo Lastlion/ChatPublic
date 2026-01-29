@@ -1,30 +1,30 @@
- const express = require('express');
+const express = require('express');
 const app = express();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
 const path = require('path');
 
-// 1. Force le serveur à utiliser le dossier actuel pour trouver index.html
+// Dire au serveur de servir le fichier index.html
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-// 2. Gestion des connexions Socket.io
+// Logique du chat
 io.on('connection', (socket) => {
-  console.log('Utilisateur connecté');
+  console.log('Un utilisateur s\'est connecté');
 
   socket.on('chat message', (msg) => {
-    // Renvoie le message à TOUT LE MONDE
+    // Diffuser le message à tout le monde
     io.emit('chat message', msg);
   });
 
   socket.on('disconnect', () => {
-    console.log('Utilisateur déconnecté');
+    console.log('Un utilisateur s\'est déconnecté');
   });
 });
 
-// 3. TRÈS IMPORTANT : Utiliser process.env.PORT pour Render
+// Configurer le port pour Render (important : 0.0.0.0)
 const PORT = process.env.PORT || 3000;
-http.listen(PORT, () => {
-  console.log(`Serveur en ligne sur le port ${PORT}`);
+http.listen(PORT, '0.0.0.0', () => {
+  console.log('Serveur démarré sur le port ' + PORT);
 });
