@@ -1,13 +1,12 @@
 {
-  "name": "ChatPublic",
+  "name": "chat-public",
   "version": "1.0.0",
-  "description": "Un chat en temps réel",
-  "main": "server.js",
+  "main": "ChatPublic.js", 
   "scripts": {
-    "start": "node server.js"
+    "start": "node ChatPublic.js"
   },
   "dependencies": {
-    "express": "^4.18.0",
-    "socket.io": "^4.5.0"
+    "express": "^4.18.2",
+    "socket.io": "^4.7.2"
   }
 }
