@@ -20,7 +20,7 @@ const ADMIN_PASSWORD = "95ADMIN";
 const BLACKLIST = ["insulte1", "spam1", "mauvaislien"]; 
 
 app.get('/', (req, res) => {
-  res.send('<h1>Serveur Chat RADIO 95 en ligne</h1>');
+  res.send('<h1>Serveur RADIO 95 Connecté</h1>');
 });
 
 let onlineCount = 0;
@@ -29,19 +29,19 @@ io.on('connection', (socket) => {
   onlineCount++;
   io.emit('user count', onlineCount);
 
-  // --- ÉTAPE 1 : DEMANDE DE PSEUDO ---
+  // 1. RÉCEPTION DEMANDE PSEUDO (Depuis l'auditeur)
   socket.on('request pseudo', (data) => {
-    // On envoie la demande à l'admin (le panel admin doit écouter cet événement)
+    // On transmet la demande au Panel Admin
     io.emit('admin approval required', { 
       socketId: socket.id, 
       requestedPseudo: data.pseudo 
     });
   });
 
-  // --- ÉTAPE 2 : VALIDATION ADMIN ---
+  // 2. VALIDATION DU PSEUDO (Depuis l'Admin)
   socket.on('admin validate pseudo', (data) => {
     if (data.password === ADMIN_PASSWORD) {
-      // On valide uniquement pour l'utilisateur spécifique via son socketId
+      // On valide uniquement pour l'utilisateur concerné
       io.to(data.socketId).emit('pseudo approved', { 
         finalPseudo: data.finalPseudo 
       });
@@ -60,6 +60,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat message', (data) => {
+    // Modération automatique
     const containsForbidden = BLACKLIST.some(word => 
       data.text.toLowerCase().includes(word)
     );
@@ -68,14 +69,13 @@ io.on('connection', (socket) => {
       socket.emit('chat message', {
         id: "bot-" + Date.now(),
         pseudo: 'BOT',
-        text: '⚠️ Votre message a été bloqué (mot interdit).',
+        text: '⚠️ Message bloqué (mot interdit).',
         color: '#ff4444'
       });
       return;
     }
 
     let finalRole = "user";
-    let finalPseudo = data.pseudo;
     let finalColor = data.color || '#ffffff';
 
     if (data.adminKey === ADMIN_PASSWORD) {
@@ -85,25 +85,28 @@ io.on('connection', (socket) => {
 
     io.emit('chat message', {
       id: data.id || Date.now() + Math.random(),
-      pseudo: finalPseudo,
+      pseudo: data.pseudo,
       text: data.text,
       color: finalColor,
       role: finalRole 
     });
   });
 
+  // --- LOGIQUE ADMIN : SUPPRESSION ---
   socket.on('delete message', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('remove message from ui', data.messageId);
     }
   });
 
+  // --- LOGIQUE ADMIN : ANNONCE GLOBALE (REMIS) ---
   socket.on('admin broadcast', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('global announcement', { text: data.text });
     }
   });
 
+  // --- LOGIQUE ADMIN : RESET GÉNÉRAL ---
   socket.on('reset all pseudos', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('force reset pseudo');
@@ -126,5 +129,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Serveur RADIO 95 prêt sur le port ${PORT}`);
+  console.log(`Serveur RADIO 95 opérationnel sur le port ${PORT}`);
 });
