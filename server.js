@@ -49,14 +49,13 @@ io.on('connection', (socket) => {
     );
 
     if (containsForbidden) {
-      // On avertit uniquement l'utilisateur qui a fauté
       socket.emit('chat message', {
         id: "bot-" + Date.now(),
         pseudo: 'BOT',
         text: '⚠️ Votre message a été bloqué (mot interdit).',
         color: '#ff4444'
       });
-      return; // On arrête l'envoi ici
+      return;
     }
 
     // 2. GESTION DES GRADES (ADMIN)
@@ -64,10 +63,9 @@ io.on('connection', (socket) => {
     let finalPseudo = data.pseudo;
     let finalColor = data.color || '#ffffff';
 
-    // Si la clé admin envoyée par le client est correcte
     if (data.adminKey === ADMIN_PASSWORD) {
       finalRole = "admin";
-      finalColor = "#FFD700"; // Couleur Or
+      finalColor = "#FFD700"; 
     }
 
     // 3. ENVOI DU MESSAGE À TOUT LE MONDE
@@ -76,7 +74,7 @@ io.on('connection', (socket) => {
       pseudo: finalPseudo,
       text: data.text,
       color: finalColor,
-      role: finalRole // On renvoie le rôle pour que l'index.html affiche la couronne
+      role: finalRole 
     });
   });
 
@@ -84,6 +82,13 @@ io.on('connection', (socket) => {
   socket.on('delete message', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('remove message from ui', data.messageId);
+    }
+  });
+
+  // --- LOGIQUE ADMIN : ANNONCE GLOBALE (AJOUTÉ) ---
+  socket.on('admin broadcast', (data) => {
+    if (data.password === ADMIN_PASSWORD) {
+      io.emit('global announcement', { text: data.text });
     }
   });
 
