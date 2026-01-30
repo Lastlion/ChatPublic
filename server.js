@@ -85,10 +85,17 @@ io.on('connection', (socket) => {
     }
   });
 
-  // --- LOGIQUE ADMIN : ANNONCE GLOBALE (AJOUTÉ) ---
+  // --- LOGIQUE ADMIN : ANNONCE GLOBALE ---
   socket.on('admin broadcast', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('global announcement', { text: data.text });
+    }
+  });
+
+  // --- LOGIQUE ADMIN : RESET DES PSEUDOS (AJOUTÉ) ---
+  socket.on('reset all pseudos', (data) => {
+    if (data.password === ADMIN_PASSWORD) {
+      io.emit('force reset pseudo');
     }
   });
 
