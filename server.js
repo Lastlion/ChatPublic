@@ -17,8 +17,6 @@ app.use(cors());
 
 // --- CONFIGURATION ADMIN & MODÉRATION ---
 const ADMIN_PASSWORD = "95ADMIN";
-
-// Ajoute ici les mots que tu veux interdire (en minuscules)
 const BLACKLIST = ["insulte1", "spam1", "mauvaislien"]; 
 
 app.get('/', (req, res) => {
@@ -30,6 +28,25 @@ let onlineCount = 0;
 io.on('connection', (socket) => {
   onlineCount++;
   io.emit('user count', onlineCount);
+
+  // --- ÉTAPE 1 : DEMANDE DE PSEUDO ---
+  socket.on('request pseudo', (data) => {
+    // On envoie la demande à l'admin (le panel admin doit écouter cet événement)
+    io.emit('admin approval required', { 
+      socketId: socket.id, 
+      requestedPseudo: data.pseudo 
+    });
+  });
+
+  // --- ÉTAPE 2 : VALIDATION ADMIN ---
+  socket.on('admin validate pseudo', (data) => {
+    if (data.password === ADMIN_PASSWORD) {
+      // On valide uniquement pour l'utilisateur spécifique via son socketId
+      io.to(data.socketId).emit('pseudo approved', { 
+        finalPseudo: data.finalPseudo 
+      });
+    }
+  });
 
   socket.on('new user', (pseudo) => {
     const name = typeof pseudo === 'object' ? pseudo.pseudo : pseudo;
@@ -43,7 +60,6 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat message', (data) => {
-    // 1. MODÉRATION AUTOMATIQUE
     const containsForbidden = BLACKLIST.some(word => 
       data.text.toLowerCase().includes(word)
     );
@@ -58,7 +74,6 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // 2. GESTION DES GRADES (ADMIN)
     let finalRole = "user";
     let finalPseudo = data.pseudo;
     let finalColor = data.color || '#ffffff';
@@ -68,7 +83,6 @@ io.on('connection', (socket) => {
       finalColor = "#FFD700"; 
     }
 
-    // 3. ENVOI DU MESSAGE À TOUT LE MONDE
     io.emit('chat message', {
       id: data.id || Date.now() + Math.random(),
       pseudo: finalPseudo,
@@ -78,21 +92,18 @@ io.on('connection', (socket) => {
     });
   });
 
-  // --- LOGIQUE ADMIN : SUPPRESSION ---
   socket.on('delete message', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('remove message from ui', data.messageId);
     }
   });
 
-  // --- LOGIQUE ADMIN : ANNONCE GLOBALE ---
   socket.on('admin broadcast', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('global announcement', { text: data.text });
     }
   });
 
-  // --- LOGIQUE ADMIN : RESET DES PSEUDOS (AJOUTÉ) ---
   socket.on('reset all pseudos', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('force reset pseudo');
