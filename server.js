@@ -15,55 +15,60 @@ const io = new Server(server, {
 
 app.use(cors());
 
+// MOT DE PASSE ADMIN (À changer si tu veux)
+const ADMIN_PASSWORD = "95ADMIN";
+
 app.get('/', (req, res) => {
   res.send('<h1>Serveur Chat RADIO 95 en ligne</h1>');
 });
 
-// --- LOGIQUE DES CONNECTÉS ---
 let onlineCount = 0;
 
 io.on('connection', (socket) => {
-  // On augmente le compteur et on informe tout le monde
   onlineCount++;
   io.emit('user count', onlineCount);
-  console.log('Utilisateurs connectés:', onlineCount);
 
-  // Quand un nouvel utilisateur rejoint
   socket.on('new user', (pseudo) => {
-    // Gestion si le pseudo est un objet ou une string
     const name = typeof pseudo === 'object' ? pseudo.pseudo : pseudo;
     socket.pseudo = name;
-    
     io.emit('chat message', {
+      id: Date.now() + Math.random(),
       pseudo: 'SYSTÈME',
       text: `${name} a rejoint le chat 🎶`,
-      color: '#00FF00' // Vert pour le système
+      color: '#00FF00'
     });
   });
 
-  // Quand un message est envoyé
   socket.on('chat message', (data) => {
-    // On renvoie TOUTES les données (pseudo, text, color)
-    io.emit('chat message', {
+    // On ajoute un ID unique à chaque message pour pouvoir le supprimer précisément
+    const messageData = {
+      id: data.id || Date.now() + Math.random(),
       pseudo: data.pseudo,
       text: data.text,
       color: data.color || '#ffffff'
-    });
+    };
+    io.emit('chat message', messageData);
+  });
+
+  // --- LOGIQUE ADMIN : SUPPRESSION ---
+  socket.on('delete message', (data) => {
+    // Vérification de sécurité côté serveur
+    if (data.password === ADMIN_PASSWORD) {
+      io.emit('remove message from ui', data.messageId);
+    }
   });
 
   socket.on('disconnect', () => {
-    // On diminue le compteur et on informe tout le monde
     onlineCount = Math.max(0, onlineCount - 1);
     io.emit('user count', onlineCount);
-
     if (socket.pseudo) {
       io.emit('chat message', {
+        id: Date.now() + Math.random(),
         pseudo: 'SYSTÈME',
         text: `${socket.pseudo} a quitté le chat.`,
-        color: '#FF4444' // Rouge pour le système
+        color: '#FF4444'
       });
     }
-    console.log('Un utilisateur est parti. Reste:', onlineCount);
   });
 });
 
