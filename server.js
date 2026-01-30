@@ -15,8 +15,11 @@ const io = new Server(server, {
 
 app.use(cors());
 
-// MOT DE PASSE ADMIN (À changer si tu veux)
+// --- CONFIGURATION ADMIN & MODÉRATION ---
 const ADMIN_PASSWORD = "95ADMIN";
+
+// Ajoute ici les mots que tu veux interdire (en minuscules)
+const BLACKLIST = ["insulte1", "spam1", "mauvaislien"]; 
 
 app.get('/', (req, res) => {
   res.send('<h1>Serveur Chat RADIO 95 en ligne</h1>');
@@ -32,7 +35,7 @@ io.on('connection', (socket) => {
     const name = typeof pseudo === 'object' ? pseudo.pseudo : pseudo;
     socket.pseudo = name;
     io.emit('chat message', {
-      id: Date.now() + Math.random(),
+      id: "sys-" + Date.now(),
       pseudo: 'SYSTÈME',
       text: `${name} a rejoint le chat 🎶`,
       color: '#00FF00'
@@ -40,19 +43,45 @@ io.on('connection', (socket) => {
   });
 
   socket.on('chat message', (data) => {
-    // On ajoute un ID unique à chaque message pour pouvoir le supprimer précisément
-    const messageData = {
+    // 1. MODÉRATION AUTOMATIQUE
+    const containsForbidden = BLACKLIST.some(word => 
+      data.text.toLowerCase().includes(word)
+    );
+
+    if (containsForbidden) {
+      // On avertit uniquement l'utilisateur qui a fauté
+      socket.emit('chat message', {
+        id: "bot-" + Date.now(),
+        pseudo: 'BOT',
+        text: '⚠️ Votre message a été bloqué (mot interdit).',
+        color: '#ff4444'
+      });
+      return; // On arrête l'envoi ici
+    }
+
+    // 2. GESTION DES GRADES (ADMIN)
+    let finalRole = "user";
+    let finalPseudo = data.pseudo;
+    let finalColor = data.color || '#ffffff';
+
+    // Si la clé admin envoyée par le client est correcte
+    if (data.adminKey === ADMIN_PASSWORD) {
+      finalRole = "admin";
+      finalColor = "#FFD700"; // Couleur Or
+    }
+
+    // 3. ENVOI DU MESSAGE À TOUT LE MONDE
+    io.emit('chat message', {
       id: data.id || Date.now() + Math.random(),
-      pseudo: data.pseudo,
+      pseudo: finalPseudo,
       text: data.text,
-      color: data.color || '#ffffff'
-    };
-    io.emit('chat message', messageData);
+      color: finalColor,
+      role: finalRole // On renvoie le rôle pour que l'index.html affiche la couronne
+    });
   });
 
   // --- LOGIQUE ADMIN : SUPPRESSION ---
   socket.on('delete message', (data) => {
-    // Vérification de sécurité côté serveur
     if (data.password === ADMIN_PASSWORD) {
       io.emit('remove message from ui', data.messageId);
     }
@@ -63,7 +92,7 @@ io.on('connection', (socket) => {
     io.emit('user count', onlineCount);
     if (socket.pseudo) {
       io.emit('chat message', {
-        id: Date.now() + Math.random(),
+        id: "sys-out-" + Date.now(),
         pseudo: 'SYSTÈME',
         text: `${socket.pseudo} a quitté le chat.`,
         color: '#FF4444'
@@ -74,5 +103,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`Serveur démarré sur le port ${PORT}`);
+  console.log(`Serveur RADIO 95 prêt sur le port ${PORT}`);
 });
