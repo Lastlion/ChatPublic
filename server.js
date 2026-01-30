@@ -6,55 +6,67 @@ const cors = require('cors');
 const app = express();
 const server = http.createServer(app);
 
-// Configuration CORS pour autoriser ton site Neocities
 const io = new Server(server, {
   cors: {
-    origin: "*", // Permet à n'importe quel site de se connecter (Utile pour Neocities)
+    origin: "*", 
     methods: ["GET", "POST"]
   }
 });
 
 app.use(cors());
 
-// Route par défaut pour vérifier que le serveur tourne
 app.get('/', (req, res) => {
   res.send('<h1>Serveur Chat RADIO 95 en ligne</h1>');
 });
 
-io.on('connection', (socket) => {
-  console.log('Un utilisateur s\'est connecté');
+// --- LOGIQUE DES CONNECTÉS ---
+let onlineCount = 0;
 
-  // Quand un nouvel utilisateur rejoint (avec son pseudo)
+io.on('connection', (socket) => {
+  // On augmente le compteur et on informe tout le monde
+  onlineCount++;
+  io.emit('user count', onlineCount);
+  console.log('Utilisateurs connectés:', onlineCount);
+
+  // Quand un nouvel utilisateur rejoint
   socket.on('new user', (pseudo) => {
-    socket.pseudo = pseudo;
-    // Envoie un message système à tout le monde
+    // Gestion si le pseudo est un objet ou une string
+    const name = typeof pseudo === 'object' ? pseudo.pseudo : pseudo;
+    socket.pseudo = name;
+    
     io.emit('chat message', {
       pseudo: 'SYSTÈME',
-      text: `${pseudo} a rejoint le chat 🎶`
+      text: `${name} a rejoint le chat 🎶`,
+      color: '#00FF00' // Vert pour le système
     });
   });
 
   // Quand un message est envoyé
   socket.on('chat message', (data) => {
-    // On renvoie le message à TOUT LE MONDE (y compris l'expéditeur)
+    // On renvoie TOUTES les données (pseudo, text, color)
     io.emit('chat message', {
       pseudo: data.pseudo,
-      text: data.text
+      text: data.text,
+      color: data.color || '#ffffff'
     });
   });
 
   socket.on('disconnect', () => {
+    // On diminue le compteur et on informe tout le monde
+    onlineCount = Math.max(0, onlineCount - 1);
+    io.emit('user count', onlineCount);
+
     if (socket.pseudo) {
       io.emit('chat message', {
         pseudo: 'SYSTÈME',
-        text: `${socket.pseudo} a quitté le chat.`
+        text: `${socket.pseudo} a quitté le chat.`,
+        color: '#FF4444' // Rouge pour le système
       });
     }
-    console.log('Un utilisateur s\'est déconnecté');
+    console.log('Un utilisateur est parti. Reste:', onlineCount);
   });
 });
 
-// Port dynamique pour Render
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
   console.log(`Serveur démarré sur le port ${PORT}`);
