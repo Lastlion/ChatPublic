@@ -9,7 +9,7 @@ const server = http.createServer(app);
 
 // --- 1. CONFIGURATION MONGODB ---
 // Remplace <db_password> par ton mot de passe réel (sans les < >)
-const uri = "mongodb+srv://turkish9531_db_user:<db_password>@cluster0.dt0l2p2.mongodb.net/?appName=Cluster0";
+const uri = "mongodb+srv://turkish9531_db_user:VtRDJIcmt0C4Ohx0@cluster0.dt0l2p2.mongodb.net/?appName=Cluster0";
 const client = new MongoClient(uri);
 let messagesCollection;
 
