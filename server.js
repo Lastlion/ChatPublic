@@ -42,15 +42,17 @@ app.get('/', (req, res) => {
   res.send('<h1>Serveur RADIO 95 Connecté</h1>');
 });
 
-// --- FONCTION POUR ENVOYER LE COMPTE ET LA LISTE ---
+// --- FONCTION POUR ENVOYER LE COMPTE ET LA LISTE (ID + PSEUDO) ---
 function emitUserUpdate() {
   const sockets = io.sockets.sockets;
   let users = [];
   sockets.forEach((s) => {
-    if (s.pseudo) users.push(s.pseudo);
+    // On n'ajoute à la liste visible que ceux qui ont un pseudo validé
+    if (s.pseudo) {
+      users.push({ id: s.id, pseudo: s.pseudo });
+    }
   });
   
-  // Envoie un objet contenant le chiffre ET la liste des pseudos
   io.emit('user count', {
     count: sockets.size,
     users: users
@@ -93,7 +95,7 @@ io.on('connection', async (socket) => {
     const name = typeof pseudo === 'object' ? pseudo.pseudo : pseudo;
     socket.pseudo = name;
     
-    // On met à jour la liste pour l'admin dès qu'un pseudo est assigné
+    // Mise à jour de la liste admin
     emitUserUpdate();
 
     io.emit('chat message', {
@@ -181,6 +183,17 @@ io.on('connection', async (socket) => {
     }
   });
 
+  // --- LOGIQUE D'EXPULSION (KICK) ---
+  socket.on('admin kick', (data) => {
+    if (data.password === ADMIN_PASSWORD) {
+      const targetSocket = io.sockets.sockets.get(data.socketId);
+      if (targetSocket) {
+        console.log(`🚫 Expulsion de : ${data.pseudo}`);
+        targetSocket.disconnect();
+      }
+    }
+  });
+
   socket.on('reset all pseudos', (data) => {
     if (data.password === ADMIN_PASSWORD) {
       io.emit('force reset pseudo');
@@ -196,7 +209,6 @@ io.on('connection', async (socket) => {
         color: '#FF4444'
       });
     }
-    // Mise à jour de la liste et du compteur au départ d'un utilisateur
     emitUserUpdate();
   });
 });
