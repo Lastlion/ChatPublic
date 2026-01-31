@@ -8,15 +8,15 @@ const app = express();
 const server = http.createServer(app);
 
 // --- 1. CONFIGURATION MONGODB ---
-// Remplace <db_password> par ton mot de passe réel (sans les < >)
 const uri = "mongodb+srv://turkish9531_db_user:VtRDJIcmt0C4Ohx0@cluster0.dt0l2p2.mongodb.net/?appName=Cluster0";
 const client = new MongoClient(uri);
 let messagesCollection;
+let db; // Variable pour accéder à la db globalement dans le script
 
 async function connectDB() {
     try {
         await client.connect();
-        const db = client.db("radio95_db");
+        db = client.db("radio95_db");
         messagesCollection = db.collection("messages");
         console.log("✅ Connecté à la base de données RADIO 95");
     } catch (e) {
@@ -52,16 +52,14 @@ io.on('connection', async (socket) => {
   // ENVOI DE L'HISTORIQUE au nouvel utilisateur
   try {
     if (messagesCollection) {
-      // On récupère les 50 derniers messages, triés par date
       const history = await messagesCollection.find().sort({ timestamp: -1 }).limit(50).toArray();
-      // On les remet dans l'ordre chronologique avant l'envoi
       socket.emit('load history', history.reverse());
     }
   } catch (err) {
     console.error("Erreur récupération historique :", err);
   }
 
-  // 1. GESTION DU PSEUDO
+  // GESTION DU PSEUDO
   socket.on('request pseudo', (data) => {
     io.emit('admin approval required', { 
       socketId: socket.id, 
@@ -88,9 +86,8 @@ io.on('connection', async (socket) => {
     });
   });
 
-  // 2. RÉCEPTION ET SAUVEGARDE DES MESSAGES
+  // RÉCEPTION ET SAUVEGARDE DES MESSAGES
   socket.on('chat message', async (data) => {
-    // Modération
     const containsForbidden = BLACKLIST.some(word => 
       data.text.toLowerCase().includes(word)
     );
@@ -119,10 +116,9 @@ io.on('connection', async (socket) => {
       text: data.text,
       color: finalColor,
       role: finalRole,
-      timestamp: new Date() // Important pour l'historique
+      timestamp: new Date()
     };
 
-    // SAUVEGARDE DANS MONGODB
     try {
       if (messagesCollection) {
         await messagesCollection.insertOne(messageData);
@@ -134,7 +130,7 @@ io.on('connection', async (socket) => {
     io.emit('chat message', messageData);
   });
 
-  // 3. LOGIQUE ADMIN
+  // LOGIQUE ADMIN (Suppression, Annonce, Reset)
   socket.on('delete message', async (data) => {
     if (data.password === ADMIN_PASSWORD) {
       try {
@@ -144,6 +140,21 @@ io.on('connection', async (socket) => {
         io.emit('remove message from ui', data.messageId);
       } catch (e) {
         console.error("Erreur suppression message :", e);
+      }
+    }
+  });
+
+  // --- NOUVELLE FONCTION : VIDER TOUT L'HISTORIQUE ---
+  socket.on('clear all history', async (data) => {
+    if (data.password === ADMIN_PASSWORD) {
+      try {
+        if (messagesCollection) {
+          await messagesCollection.deleteMany({});
+          console.log("🗑️ Base de données vidée par l'admin");
+          io.emit('history cleared'); // Informe tout le monde de vider l'écran
+        }
+      } catch (e) {
+        console.error("Erreur vidage historique :", e);
       }
     }
   });
@@ -175,7 +186,7 @@ io.on('connection', async (socket) => {
 });
 
 // --- 4. LANCEMENT ---
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 server.listen(PORT, () => {
   console.log(`🚀 Serveur RADIO 95 opérationnel sur le port ${PORT}`);
 });
