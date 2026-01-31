@@ -11,7 +11,7 @@ const server = http.createServer(app);
 const uri = "mongodb+srv://turkish9531_db_user:VtRDJIcmt0C4Ohx0@cluster0.dt0l2p2.mongodb.net/?appName=Cluster0";
 const client = new MongoClient(uri);
 let messagesCollection;
-let db; // Variable pour accéder à la db globalement dans le script
+let db; 
 
 async function connectDB() {
     try {
@@ -42,12 +42,26 @@ app.get('/', (req, res) => {
   res.send('<h1>Serveur RADIO 95 Connecté</h1>');
 });
 
-let onlineCount = 0;
+// --- FONCTION POUR ENVOYER LE COMPTE ET LA LISTE ---
+function emitUserUpdate() {
+  const sockets = io.sockets.sockets;
+  let users = [];
+  sockets.forEach((s) => {
+    if (s.pseudo) users.push(s.pseudo);
+  });
+  
+  // Envoie un objet contenant le chiffre ET la liste des pseudos
+  io.emit('user count', {
+    count: sockets.size,
+    users: users
+  });
+}
 
 // --- 3. LOGIQUE DU CHAT ---
 io.on('connection', async (socket) => {
-  onlineCount++;
-  io.emit('user count', onlineCount);
+  
+  // Mise à jour initiale à la connexion
+  emitUserUpdate();
 
   // ENVOI DE L'HISTORIQUE au nouvel utilisateur
   try {
@@ -78,6 +92,10 @@ io.on('connection', async (socket) => {
   socket.on('new user', (pseudo) => {
     const name = typeof pseudo === 'object' ? pseudo.pseudo : pseudo;
     socket.pseudo = name;
+    
+    // On met à jour la liste pour l'admin dès qu'un pseudo est assigné
+    emitUserUpdate();
+
     io.emit('chat message', {
       id: "sys-" + Date.now(),
       pseudo: 'SYSTÈME',
@@ -130,7 +148,7 @@ io.on('connection', async (socket) => {
     io.emit('chat message', messageData);
   });
 
-  // LOGIQUE ADMIN (Suppression, Annonce, Reset)
+  // LOGIQUE ADMIN
   socket.on('delete message', async (data) => {
     if (data.password === ADMIN_PASSWORD) {
       try {
@@ -144,14 +162,12 @@ io.on('connection', async (socket) => {
     }
   });
 
-  // --- NOUVELLE FONCTION : VIDER TOUT L'HISTORIQUE ---
   socket.on('clear all history', async (data) => {
     if (data.password === ADMIN_PASSWORD) {
       try {
         if (messagesCollection) {
           await messagesCollection.deleteMany({});
-          console.log("🗑️ Base de données vidée par l'admin");
-          io.emit('history cleared'); // Informe tout le monde de vider l'écran
+          io.emit('history cleared'); 
         }
       } catch (e) {
         console.error("Erreur vidage historique :", e);
@@ -172,8 +188,6 @@ io.on('connection', async (socket) => {
   });
 
   socket.on('disconnect', () => {
-    onlineCount = Math.max(0, onlineCount - 1);
-    io.emit('user count', onlineCount);
     if (socket.pseudo) {
       io.emit('chat message', {
         id: "sys-out-" + Date.now(),
@@ -182,6 +196,8 @@ io.on('connection', async (socket) => {
         color: '#FF4444'
       });
     }
+    // Mise à jour de la liste et du compteur au départ d'un utilisateur
+    emitUserUpdate();
   });
 });
 
